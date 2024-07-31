@@ -43,6 +43,8 @@ Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
 The backend is a simple Express server with a single endpoint:
 
+Backend service by default starts at http://localhost:5001
+
 POST /api/swap: This endpoint accepts a JSON payload with the following parameters and returns a quote for swapping tokens.
 
 ```json
