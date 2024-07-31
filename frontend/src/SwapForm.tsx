@@ -84,6 +84,14 @@ const SwapForm: React.FC = () => {
     setFromAmountWei("1000000000000000000"); // 1 ETH in Wei
   };
 
+  const handleInputChange = (
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    value: string
+  ) => {
+    setter(value);
+    setQuote(null);
+  };
+
   if (!wallet) {
     return (
       <div className="flex  justify-center text-grey-500 mt-5">
@@ -101,7 +109,9 @@ const SwapForm: React.FC = () => {
             <input
               type="text"
               value={fromTokenAddress}
-              onChange={(e) => setFromTokenAddress(e.target.value)}
+              onChange={(e) =>
+                handleInputChange(setFromTokenAddress, e.target.value)
+              }
               required
               className="w-full px-3 py-2 border rounded"
             />
@@ -114,7 +124,9 @@ const SwapForm: React.FC = () => {
             <input
               type="text"
               value={fromChainId}
-              onChange={(e) => setFromChainId(e.target.value)}
+              onChange={(e) =>
+                handleInputChange(setFromChainId, e.target.value)
+              }
               required
               className="w-full px-3 py-2 border rounded"
             />
@@ -125,7 +137,9 @@ const SwapForm: React.FC = () => {
             <input
               type="text"
               value={toTokenAddress}
-              onChange={(e) => setToTokenAddress(e.target.value)}
+              onChange={(e) =>
+                handleInputChange(setToTokenAddress, e.target.value)
+              }
               required
               className="w-full px-3 py-2 border rounded"
             />
@@ -138,7 +152,7 @@ const SwapForm: React.FC = () => {
             <input
               type="text"
               value={toChainId}
-              onChange={(e) => setToChainId(e.target.value)}
+              onChange={(e) => handleInputChange(setToChainId, e.target.value)}
               required
               className="w-full px-3 py-2 border rounded"
             />
@@ -149,7 +163,9 @@ const SwapForm: React.FC = () => {
             <input
               type="text"
               value={fromAmountWei}
-              onChange={(e) => setFromAmountWei(e.target.value)}
+              onChange={(e) =>
+                handleInputChange(setFromAmountWei, e.target.value)
+              }
               required
               className="w-full px-3 py-2 border rounded"
             />
@@ -238,12 +254,12 @@ const SwapForm: React.FC = () => {
               </>
             </div>
             <div>
-              <p>
-                Transactions:{" "}
+              <div className="mt-4">
+                <b>Transactions to start the exchange (approval, send):</b>{" "}
                 <pre id="json" style={{ overflowY: "scroll" }}>
                   {JSON.stringify(quote.transactionRequest, null, 2)}
                 </pre>
-              </p>
+              </div>
               <div className="mt-4">
                 <button
                   disabled
