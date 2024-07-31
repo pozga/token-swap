@@ -10,16 +10,18 @@ This project consists of two main components:
 
 ## Requirements
 - Node.js v20.9.0 (may work on lower versions but tested on this version)
-- Yarn (for dependency management - but should work also with npm or pnpm)
+- Yarn (for dependency management)
 
 ## To initialize the project
 
 In the project directory, run:
 
-`yarn install
-    cd frontend
-    yarn install
-    cd ..`
+```
+yarn install
+cd frontend
+yarn install
+cd ..
+```
 
 
 ### To start the service
@@ -29,8 +31,10 @@ Then to start the project run:
 `yarn dev`
 
 Then in another terminal:
-`cd frontend
-    yarn start`
+```
+cd frontend
+yarn start
+```
 
 Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
@@ -48,6 +52,6 @@ POST /api/swap: This endpoint accepts a JSON payload with the following paramete
   "toTokenAddress": "0x0000000000000000000000000000000000000000",
   "toChainId": "137",
   "fromAmountWei": "1000000000000000000",
-  "userAddress": "0xYourWalletAddress"
+  "userAddress": "0xYourWalletAddress" (optional)
 }
 ```
