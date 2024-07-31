@@ -3,87 +3,66 @@ import axios, { AxiosResponse } from "axios";
 import { Chain } from "./types/chains";
 import { Token } from "./types/tokens";
 import { QuoteResponse } from "./types/quote";
-import { GetCrossChainSwapQuoteReponse } from "./types/api";
-
-// Use these types to store supported chains and tokens
-let supportedChains: { [key: string]: Chain } = {};
-let supportedTokens: { [key: string]: Token } = {};
+import {
+  GetCrossChainSwapQuoteReponse,
+  GetCrossChainSwapQuoteRequestParams,
+} from "./types/api";
+import { supportedChains, supportedTokens } from "./lib/swingData";
 
 const NULL_ETH_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-// Function to fetch and store supported chains and tokens
-const fetchSupportedChainsAndTokens = async () => {
-  try {
-    // Fetch supported chains
-    const chainsResponse = await axios.get(
-      "https://platform.swing.xyz/api/v1/chains",
-      {
-        headers: {
-          "x-swing-environment": "production",
-        },
-      }
-    );
-
-    chainsResponse.data.forEach((chain: Chain) => {
-      supportedChains[chain.id] = chain;
-    });
-
-    // Fetch supported tokens
-    const tokensResponse = await axios.get(
-      "https://platform.swing.xyz/api/v1/tokens",
-      {
-        headers: {
-          "x-swing-environment": "production",
-        },
-      }
-    );
-
-    tokensResponse.data.forEach((token: Token) => {
-      supportedTokens[token.address] = token;
-    });
-
-    console.log("Supported chains and tokens fetched and stored.");
-  } catch (error) {
-    console.error("Error fetching supported chains and tokens:", error);
+export const getCrossChainSwapQuote = async (
+  req: Request<any, any, GetCrossChainSwapQuoteRequestParams>,
+  res: Response
+) => {
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed");
   }
-};
 
-// Fetch supported chains and tokens on server start
-fetchSupportedChainsAndTokens();
-
-export const getCrossChainSwapQuote = async (req: Request, res: Response) => {
   const {
     fromTokenAddress,
     fromChainId,
     toTokenAddress,
     toChainId,
     fromAmountWei,
+    userAddress,
   } = req.body;
 
-  const fromUserAddress = NULL_ETH_ADDRESS;
-  const toUserAddress = NULL_ETH_ADDRESS;
+  const finalUserAddress = userAddress ?? NULL_ETH_ADDRESS;
 
   try {
-    const fromChain = supportedChains[fromChainId].id;
-    const toChain = supportedChains[toChainId].id;
-    const fromTokenSymbol = supportedTokens[fromTokenAddress]?.symbol;
-    const toTokenSymbol = supportedTokens[toTokenAddress]?.symbol;
+    const fromChainData = supportedChains.find(
+      (chain) => chain.id === fromChainId
+    );
+    const toChainData = supportedChains.find((chain) => chain.id === toChainId);
+    const fromTokenData = supportedTokens.find(
+      (token) =>
+        token.address === fromTokenAddress &&
+        token.chain === fromChainData?.slug
+    );
+    const toTokenData = supportedTokens.find(
+      (token) =>
+        token.address === toTokenAddress && token.chain === toChainData?.slug
+    );
 
-    if (!fromChain || !toChain || !fromTokenSymbol || !toTokenSymbol) {
+    if (!fromChainData || !toChainData || !fromTokenData || !toTokenData) {
       throw new Error("Invalid chain ID or token address");
     }
+
+    const fromChain = fromChainData.slug;
+    const toChain = toChainData.slug;
 
     const config = {
       params: {
         fromChain,
         fromTokenAddress,
-        fromUserAddress,
+        fromUserAddress: finalUserAddress,
         toChain,
         toTokenAddress,
-        toUserAddress,
+        toUserAddress: finalUserAddress,
         tokenAmount: fromAmountWei,
-        tokenSymbol: fromTokenSymbol,
-        toTokenSymbol: toTokenSymbol,
+        tokenSymbol: fromTokenData.symbol,
+        toTokenSymbol: toTokenData.symbol,
       },
       headers: {
         "x-swing-environment": "production",
@@ -101,34 +80,17 @@ export const getCrossChainSwapQuote = async (req: Request, res: Response) => {
     const { amount, amountUSD, bridgeFeeUSD } = firstRoute.quote;
     const { duration, gasUSD } = firstRoute;
 
-    const allowanceResult = await axios.get(
-      "https://swap.prod.swing.xyz/v0/transfer/allowance",
-      {
-        params: {
-          fromChain,
-          tokenSymbol: fromTokenSymbol,
-          tokenAddress: fromTokenAddress,
-          bridge: firstRoute.route[0].bridge,
-          fromAddress: NULL_ETH_ADDRESS,
-          toChain,
-          toTokenSymbol: toTokenSymbol,
-          toTokenAddress: toTokenAddress,
-          contractCall: true,
-        },
-      }
-    );
-
     const approveResult = await axios.get(
       "https://swap.prod.swing.xyz/v0/transfer/approve",
       {
         params: {
           fromChain,
-          tokenSymbol: fromTokenSymbol,
+          tokenSymbol: fromTokenData.symbol,
           tokenAddress: fromTokenAddress,
           bridge: firstRoute.route[0].bridge,
-          fromAddress: NULL_ETH_ADDRESS,
+          fromAddress: finalUserAddress,
           toChain,
-          toTokenSymbol: toTokenSymbol,
+          toTokenSymbol: toTokenData.symbol,
           toTokenAddress: toTokenAddress,
           tokenAmount: fromAmountWei,
           contractCall: true,
@@ -136,7 +98,39 @@ export const getCrossChainSwapQuote = async (req: Request, res: Response) => {
       }
     );
 
-    console.log(allowanceResult, approveResult);
+    const sendTransactionResult = await axios.post(
+      "https://swap.prod.swing.xyz/v0/transfer/send",
+      {
+        //source chain parameters
+        fromChain,
+        tokenSymbol: fromTokenData.symbol,
+        fromTokenAddress,
+
+        //destination chain parameters
+        toChain,
+        toTokenSymbol: toTokenData.symbol,
+        toTokenAddress: toTokenAddress,
+
+        //transfer parameters
+        fromUserAddress: finalUserAddress,
+        toUserAddress: finalUserAddress,
+        tokenAmount: fromAmountWei,
+        projectId: "token-swap", // create your project here: https://platform.swing.xyz/
+        integration: firstRoute.quote.integration,
+        type: firstRoute.quote.type,
+        route: firstRoute.route,
+        skipValidation: "true",
+      }
+    );
+
+    const transactionRequest = [
+      ...(Array.isArray(approveResult.data.tx)
+        ? approveResult.data.tx
+        : [approveResult.data.tx]),
+      ...(Array.isArray(sendTransactionResult.data.tx)
+        ? sendTransactionResult.data.tx
+        : [sendTransactionResult.data.tx]),
+    ];
 
     res.status(200).json({
       fees: parseFloat(bridgeFeeUSD),
@@ -146,6 +140,7 @@ export const getCrossChainSwapQuote = async (req: Request, res: Response) => {
       toAmountUSD: amountUSD,
       toToken,
       fromToken,
+      transactionRequest,
     } as GetCrossChainSwapQuoteReponse);
   } catch (error) {
     console.error("Error fetching swap quote:", error);

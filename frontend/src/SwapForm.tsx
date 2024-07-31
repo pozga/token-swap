@@ -1,31 +1,60 @@
 import React, { useState } from "react";
 import axios, { AxiosResponse } from "axios";
-import "tailwindcss/tailwind.css"; // Ensure Tailwind CSS is set up correctly
+import "tailwindcss/tailwind.css";
 import { GetCrossChainSwapQuoteReponse } from "../../src/types/api";
 import { formatUnits } from "ethers";
+import { useActiveWallet } from "thirdweb/react";
 
 const SwapForm: React.FC = () => {
   const [fromTokenAddress, setFromTokenAddress] = useState("");
   const [fromChainId, setFromChainId] = useState("");
   const [toTokenAddress, setToTokenAddress] = useState("");
   const [toChainId, setToChainId] = useState("");
+  const wallet = useActiveWallet();
   const [fromAmountWei, setFromAmountWei] = useState("");
   const [quote, setQuote] = useState<GetCrossChainSwapQuoteReponse | null>(
     null
   );
+  // const { mutate: sendBatch, data: transactionResult } =
+  //   useSendBatchTransaction();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const executeTransaction = async (transactionRequest: any[]) => {
+    if (!wallet) {
+      alert("Please connect your wallet to execute the transaction.");
+      return;
+    }
+
+    // Has compile error
+    // const preparedTransactions = transactionRequest.map((transaction: any) => {
+    //   return prepareTransaction({
+    //     ...transaction,
+    //     client: thirdwebClient,
+    //     chain: fromChainId,
+    //   });
+    // });
+
+    try {
+      // const txResponse = await sendBatch(preparedTransactions);
+      // console.log("Transaction sent:", txResponse);
+    } catch (error) {
+      console.error("Error sending transaction:", error);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setQuote(null);
 
     try {
       const response = await axios.post<
         any,
         AxiosResponse<GetCrossChainSwapQuoteReponse>
       >("http://localhost:5001/api/swap", {
+        userAddress: wallet?.getAccount()?.address,
         fromTokenAddress,
         fromChainId,
         toTokenAddress,
@@ -34,6 +63,11 @@ const SwapForm: React.FC = () => {
       });
 
       setQuote(response.data);
+      setTimeout(() => {
+        document.getElementById("quote")?.scrollIntoView({
+          behavior: "smooth",
+        });
+      }, 200);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching swap quote:", error);
@@ -49,6 +83,14 @@ const SwapForm: React.FC = () => {
     setToChainId("137");
     setFromAmountWei("1000000000000000000"); // 1 ETH in Wei
   };
+
+  if (!wallet) {
+    return (
+      <div className="flex  justify-center text-grey-500 mt-5">
+        Please connect your wallet to use the swap functionality.
+      </div>
+    );
+  }
 
   return (
     <>
@@ -118,12 +160,14 @@ const SwapForm: React.FC = () => {
           <div className="flex justify-between">
             <button
               type="submit"
+              disabled={loading}
               className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
             >
               {loading ? "Loading..." : "Get Quote"}
             </button>
             <button
               type="button"
+              disabled={loading}
               onClick={useExampleValues}
               className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
             >
@@ -131,11 +175,14 @@ const SwapForm: React.FC = () => {
             </button>
           </div>
         </form>
+        {error && <p className="mt-4 text-red-500">{error}</p>}
       </div>
-      {error && <p className="mt-4 text-red-500">{error}</p>}
 
       {quote && (
-        <div className="max-w-3xl mt-3 mx-auto p-4 bg-white shadow-md rounded">
+        <div
+          id="quote"
+          className="max-w-3xl mt-3 mx-auto p-4 bg-white shadow-md rounded"
+        >
           <div className="mt-4 p-4 bg-gray-100 rounded">
             <h2 className="text-lg font-bold mb-4">Swap Quote</h2>
             <div className="grid grid-cols-2 gap-4">
@@ -179,7 +226,7 @@ const SwapForm: React.FC = () => {
                 {quote.estimatedTime ? quote.estimatedTime : "5+"} minutes
               </p>
               <p>
-                Bridge Fees: <b>{quote.fees} $</b>
+                Service Fees: <b>{quote.fees} $</b>
               </p>
 
               <p>
@@ -189,6 +236,23 @@ const SwapForm: React.FC = () => {
                 Total cost:{" "}
                 <b>{(quote.fees + parseFloat(quote.gasUSD)).toFixed(2)} $</b>
               </>
+            </div>
+            <div>
+              <p>
+                Transactions:{" "}
+                <pre id="json" style={{ overflowY: "scroll" }}>
+                  {JSON.stringify(quote.transactionRequest, null, 2)}
+                </pre>
+              </p>
+              <div className="mt-4">
+                <button
+                  disabled
+                  onClick={() => executeTransaction(quote.transactionRequest)}
+                  className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
+                >
+                  Execute Transaction (TODO)
+                </button>
+              </div>
             </div>
           </div>
         </div>

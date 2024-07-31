@@ -8,4 +8,18 @@ export type GetCrossChainSwapQuoteReponse = {
   gasUSD: string;
   toToken: QuoteToken;
   fromToken: QuoteToken;
+  transactionRequest: {
+    method: string;
+    params: any[];
+    to: string;
+  }[];
+};
+
+export type GetCrossChainSwapQuoteRequestParams = {
+  fromTokenAddress: string;
+  fromChainId: string;
+  toTokenAddress: string;
+  toChainId: string;
+  fromAmountWei: string;
+  userAddress: string;
 };
